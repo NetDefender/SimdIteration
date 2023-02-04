@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# S2743: Static fields should not be used in generic types
+dotnet_diagnostic.S2743.severity = none
