@@ -1,7 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
-using SimdIteration;
+﻿using SimdIteration;
 
 Random random = new(Environment.TickCount);
 int[] items = new int[10];

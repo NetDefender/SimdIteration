@@ -1,0 +1,25 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Runtime" #>
+<#@ assembly name="System.Data" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Runtime.CompilerServices" #>
+<#@ output extension=".cs" #>
+using System.Runtime.CompilerServices;
+namespace SimdIteration;
+<#
+	string[] options = Enum.GetNames(typeof(MethodImplOptions));
+#>
+
+public sealed partial class IntConverter
+{
+<# foreach(var option in options) { #>
+	[MethodImpl(MethodImplOptions.<#= option #>)]
+	public bool <#= option #>(int value)
+	{
+		return (value & ~value) == 0;
+	}
+<# } #>
+}
