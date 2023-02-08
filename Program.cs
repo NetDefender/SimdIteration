@@ -1,6 +1,12 @@
-﻿using SimdIteration;
+﻿using BenchmarkDotNet.Running;
+using SimdIteration;
 
-Random random = new(Environment.TickCount);
-int[] items = new int[10];
-items.Mutate((index, value) => random.Next(index, 1000) + value);
-Console.WriteLine(items.Length);
+#if DEBUG
+LinqExtensionsBenchmark benchmark = new LinqExtensionsBenchmark();
+benchmark.LEN = 10;
+benchmark.Setup();
+benchmark.ClassicArrayMutation();
+benchmark.RefArrayMutation();
+#else
+BenchmarkRunner.Run<LinqExtensionsBenchmark>();
+#endif

@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="IntConverter.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>IntConverter.cs</LastGenOutput>
@@ -28,6 +32,11 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>CustomConverter.tt</DependentUpon>
+    </Compile>
+    <Compile Update="IntConverter.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>IntConverter.tt</DependentUpon>
     </Compile>
   </ItemGroup>
 
