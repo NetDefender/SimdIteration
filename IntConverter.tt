@@ -9,6 +9,7 @@
 <#@ output extension=".cs" #>
 using System.Runtime.CompilerServices;
 namespace SimdIteration;
+
 <#
 	string[] options = Enum.GetNames(typeof(MethodImplOptions));
 #>
@@ -16,10 +17,6 @@ namespace SimdIteration;
 public sealed partial class IntConverter
 {
 <# foreach(var option in options) { #>
-	[MethodImpl(MethodImplOptions.<#= option #>)]
-	public bool <#= option #>(int value)
-	{
-		return (value & ~value) == 0;
-	}
+	public const string <#= option.ToUpper() #> = "<#= option #>";
 <# } #>
 }

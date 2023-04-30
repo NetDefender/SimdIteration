@@ -22,7 +22,7 @@
 		</None>
 	</ItemGroup>
 
-	<ItemGroup  Condition=" '$(Configuration)' == 'Debug'">
+	<ItemGroup Condition=" '$(Configuration)' == 'Debug'">
 		<Compile Update="Converter.cs">
 			<DesignTime>True</DesignTime>
 			<AutoGen>True</AutoGen>
@@ -33,11 +33,14 @@
 			<AutoGen>True</AutoGen>
 			<DependentUpon>CustomConverter.tt</DependentUpon>
 		</Compile>
-		<Compile Update="IntConverter.cs">
-			<DesignTime>True</DesignTime>
-			<AutoGen>True</AutoGen>
-			<DependentUpon>IntConverter.tt</DependentUpon>
-		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="IntConverter.cs">
+	    <DesignTime>True</DesignTime>
+	    <AutoGen>True</AutoGen>
+	    <DependentUpon>IntConverter.tt</DependentUpon>
+	  </Compile>
 	</ItemGroup>
 
 </Project>
