@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -8,33 +7,7 @@ namespace SimdIteration;
 
 public static class LinqExtensions
 {
-    public static T[] MutateRef<T>(this T[] instance, Func<int, T, T> action)
-        where T : struct, INumber<T>
-    {
-        int pos = 0;
-        ref T item = ref MemoryMarshal.GetReference(new Span<T>(instance));
-        ref T last = ref Unsafe.Add(ref item, instance.Length);
-
-        while (Unsafe.IsAddressLessThan(ref item, ref last))
-        {
-            item = action(pos, item);
-            pos++;
-            item = ref Unsafe.Add(ref item, 1);
-        }
-
-        return instance;
-    }
-
-    public static T[] MutateClassic<T>(this T[] instance, Func<int, T, T> action)
-    {
-        for (int i = 0; i < instance.Length; i++)
-        {
-            instance[i] = action(i, instance[i]);
-        }
-
-        return instance;
-    }
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IEnumerable<TSource[]> OptimizedChunk<TSource>(this IEnumerable<TSource> source, int size)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -113,6 +86,7 @@ file static class SimdCore<T> where T : struct, INumber<T>
 {
     #region fields
     private static readonly int _vectorLength;
+    private static readonly bool _is512;
     private static readonly bool _is256;
     private static readonly bool _is128;
     #endregion
@@ -120,6 +94,12 @@ file static class SimdCore<T> where T : struct, INumber<T>
     #region ctor
     static SimdCore()
     {
+        if (Vector256.IsHardwareAccelerated)
+        {
+            _is512 = true;
+            _vectorLength = Vector512<T>.Count;
+            return;
+        }
         if (Vector256.IsHardwareAccelerated)
         {
             _is256 = true;
@@ -137,11 +117,14 @@ file static class SimdCore<T> where T : struct, INumber<T>
     #endregion
 
     #region methods
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static T Sum(ReadOnlySpan<T> source)
     {
         if (source.Length > _vectorLength)
         {
+            if (_is512)
+            {
+                return Sum512(source);
+            }
             if (_is256)
             {
                 return Sum256(source);
@@ -154,50 +137,33 @@ file static class SimdCore<T> where T : struct, INumber<T>
         return SumFallback(source);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static T SumFallback(ReadOnlySpan<T> source)
+    private static T Sum512(ReadOnlySpan<T> source)
     {
         T sum = T.Zero;
-        unchecked
+        Vector512<T> vectorSum512 = Vector512<T>.Zero;
+        ref T begin512 = ref MemoryMarshal.GetReference(source);
+        ref T last512 = ref Unsafe.Add(ref begin512, source.Length);
+        ref T current512 = ref begin512;
+        ref T to512 = ref Unsafe.Add(ref begin512, source.Length - _vectorLength);
+
+        while (Unsafe.IsAddressLessThan(ref current512, ref to512))
         {
-            for (int i = 0; i < source.Length; i++)
-            {
-                sum += source[i];
-            }
+            vectorSum512 += Vector512.LoadUnsafe(ref current512);
+            current512 = ref Unsafe.Add(ref current512, _vectorLength);
         }
 
-        return sum;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static T Sum128(ReadOnlySpan<T> source)
-    {
-        T sum = T.Zero;
-        Vector128<T> vectorSum128 = Vector128<T>.Zero;
-        ref T begin128 = ref MemoryMarshal.GetReference(source);
-        ref T last128 = ref Unsafe.Add(ref begin128, source.Length);
-        ref T current128 = ref begin128;
-        ref T to128 = ref Unsafe.Add(ref begin128, source.Length - _vectorLength);
-
-        while (Unsafe.IsAddressLessThan(ref current128, ref to128))
-        {
-            vectorSum128 += Vector128.LoadUnsafe(ref current128);
-            current128 = ref Unsafe.Add(ref current128, _vectorLength);
-        }
-
-        while (Unsafe.IsAddressLessThan(ref current128, ref last128))
+        while (Unsafe.IsAddressLessThan(ref current512, ref last512))
         {
             unchecked
             {
-                sum += current128;
+                sum += current512;
             }
-            current128 = ref Unsafe.Add(ref current128, 1);
+            current512 = ref Unsafe.Add(ref current512, 1);
         }
 
-        return sum + Vector128.Sum(vectorSum128);
+        return sum + Vector512.Sum(vectorSum512);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static T Sum256(ReadOnlySpan<T> source)
     {
         T sum = T.Zero;
@@ -225,11 +191,55 @@ file static class SimdCore<T> where T : struct, INumber<T>
         return sum + Vector256.Sum(vectorSum256);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static T Sum128(ReadOnlySpan<T> source)
+    {
+        T sum = T.Zero;
+        Vector128<T> vectorSum128 = Vector128<T>.Zero;
+        ref T begin128 = ref MemoryMarshal.GetReference(source);
+        ref T last128 = ref Unsafe.Add(ref begin128, source.Length);
+        ref T current128 = ref begin128;
+        ref T to128 = ref Unsafe.Add(ref begin128, source.Length - _vectorLength);
+
+        while (Unsafe.IsAddressLessThan(ref current128, ref to128))
+        {
+            vectorSum128 += Vector128.LoadUnsafe(ref current128);
+            current128 = ref Unsafe.Add(ref current128, _vectorLength);
+        }
+
+        while (Unsafe.IsAddressLessThan(ref current128, ref last128))
+        {
+            unchecked
+            {
+                sum += current128;
+            }
+            current128 = ref Unsafe.Add(ref current128, 1);
+        }
+
+        return sum + Vector128.Sum(vectorSum128);
+    }
+
+    private static T SumFallback(ReadOnlySpan<T> source)
+    {
+        T sum = T.Zero;
+        unchecked
+        {
+            for (int i = 0; i < source.Length; i++)
+            {
+                sum += source[i];
+            }
+        }
+
+        return sum;
+    }
+
     internal static (T Min, T Max) MinMax(ReadOnlySpan<T> source)
     {
         if (source.Length > _vectorLength)
         {
+            if (_is512)
+            {
+                return MinMax512(source);
+            }
             if (_is256)
             {
                 return MinMax256(source);
@@ -240,6 +250,57 @@ file static class SimdCore<T> where T : struct, INumber<T>
             }
         }
         return MinMaxFallback(source);
+    }
+
+    private static (T Min, T Max) MinMax512(ReadOnlySpan<T> source)
+    {
+        ref T current = ref MemoryMarshal.GetReference(source);
+        ref T last = ref Unsafe.Add(ref current, source.Length);
+        ref T to = ref Unsafe.Add(ref last, -_vectorLength);
+
+        Vector512<T> minElement = Vector512.LoadUnsafe(ref current);
+        Vector512<T> maxElement = minElement;
+        current = ref Unsafe.Add(ref current, _vectorLength);
+
+        while (Unsafe.IsAddressLessThan(ref current, ref to))
+        {
+            Vector512<T> tempElement = Vector512.LoadUnsafe(ref current);
+            minElement = Vector512.Min(minElement, tempElement);
+            maxElement = Vector512.Max(maxElement, tempElement);
+            current = ref Unsafe.Add(ref current, _vectorLength);
+        }
+
+        T min = minElement[0];
+        T max = maxElement[0];
+
+        for (int i = 1; i < _vectorLength; i++)
+        {
+            T tempMin = minElement[i];
+            if (tempMin < min)
+            {
+                min = tempMin;
+            }
+            T tempMax = maxElement[i];
+            if (tempMax > max)
+            {
+                max = tempMax;
+            }
+        }
+
+        while (Unsafe.IsAddressLessThan(ref current, ref last))
+        {
+            if (current < min)
+            {
+                min = current;
+            }
+            if (current > max)
+            {
+                max = current;
+            }
+            current = ref Unsafe.Add(ref current, 1);
+        }
+
+        return (min, max);
     }
 
     private static (T Min, T Max) MinMax256(ReadOnlySpan<T> source)
@@ -288,32 +349,6 @@ file static class SimdCore<T> where T : struct, INumber<T>
                 max = current;
             }
             current = ref Unsafe.Add(ref current, 1);
-        }
-
-        return (min, max);
-    }
-
-    private static (T Min, T Max) MinMaxFallback(ReadOnlySpan<T> source)
-    {
-        if (source.Length == 0)
-        {
-            ThrowNoElements();
-        }
-
-        T min = source[0];
-        T max = min;
-
-        for (int i = 1; i < source.Length; i++)
-        {
-            T current = source[i];
-            if (current < min)
-            {
-                min = current;
-            }
-            if (current > max)
-            {
-                max = current;
-            }
         }
 
         return (min, max);
@@ -370,10 +405,25 @@ file static class SimdCore<T> where T : struct, INumber<T>
         return (min, max);
     }
 
-    [DoesNotReturn]
-    static void ThrowNoElements()
+    private static (T Min, T Max) MinMaxFallback(ReadOnlySpan<T> source)
     {
-        throw new InvalidOperationException("Source contains no elements");
+        T min = source[0];
+        T max = min;
+
+        for (int i = 1; i < source.Length; i++)
+        {
+            T current = source[i];
+            if (current < min)
+            {
+                min = current;
+            }
+            if (current > max)
+            {
+                max = current;
+            }
+        }
+
+        return (min, max);
     }
     #endregion
 }
