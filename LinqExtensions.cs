@@ -1,7 +1,10 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+#if !NET48
 using System.Runtime.Intrinsics;
+#endif
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SimdIteration;
 
@@ -10,8 +13,22 @@ public static class LinqExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IEnumerable<TSource[]> OptimizedChunk<TSource>(this IEnumerable<TSource> source, int size)
     {
+#if NET48
+    if (source == null)
+    {
+        throw new ArgumentNullException(nameof(source));
+    }
+#else
         ArgumentNullException.ThrowIfNull(source);
+#endif
+#if NET8_0
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
+#else
+        if(size < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(source));
+        }
+#endif
         return SafeOptimizedChunker(source, size);
     }
 
@@ -71,22 +88,50 @@ public static class LinqExtensions
             }
         }
     }
+#if !NET48
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int SumSimd(this int[] source) => SimdCore<int>.Sum(new ReadOnlySpan<int>(source));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Sum(this int[] source) => SimdCore<int>.Sum(new ReadOnlySpan<int>(source));
+    public static (int Min, int Max) MinMaxSimd(this int[] source) => SimdCore<int>.MinMax(new ReadOnlySpan<int>(source));
+#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (int Min, int Max) MinMax(this int[] source) => SimdCore<int>.MinMax(new ReadOnlySpan<int>(source));
+    public static (int Min, int Max) MinMaxLinq(this int[] source)
+    {
+        return (source.Min(), source.Max());
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static decimal Average(this int[] source) => SimdCore<int>.Sum(new ReadOnlySpan<int>(source)) / (source.Length * 1M);
+    public static (int Min, int Max) MinMaxForEach(this int[] source)
+    {
+        int min = source[0];
+        int max = min;
+
+        foreach(int value in source)
+        {
+            if(value < min)
+            {
+                min = value;
+            }
+            if(value > max)
+            {
+                max = value;
+            }
+        }
+
+        return (min, max);
+    }
 }
 
+#if !NET48
 file static class SimdCore<T> where T : struct, INumber<T>
 {
     #region fields
     private static readonly int _vectorLength;
+#if NET8_0
     private static readonly bool _is512;
+#endif
     private static readonly bool _is256;
     private static readonly bool _is128;
     #endregion
@@ -94,12 +139,14 @@ file static class SimdCore<T> where T : struct, INumber<T>
     #region ctor
     static SimdCore()
     {
-        if (Vector256.IsHardwareAccelerated)
+#if NET8_0
+        if (Vector512.IsHardwareAccelerated)
         {
             _is512 = true;
             _vectorLength = Vector512<T>.Count;
             return;
         }
+#endif
         if (Vector256.IsHardwareAccelerated)
         {
             _is256 = true;
@@ -121,10 +168,12 @@ file static class SimdCore<T> where T : struct, INumber<T>
     {
         if (source.Length > _vectorLength)
         {
+#if NET8_0
             if (_is512)
             {
                 return Sum512(source);
             }
+#endif
             if (_is256)
             {
                 return Sum256(source);
@@ -136,7 +185,7 @@ file static class SimdCore<T> where T : struct, INumber<T>
         }
         return SumFallback(source);
     }
-
+#if NET8_0
     private static T Sum512(ReadOnlySpan<T> source)
     {
         T sum = T.Zero;
@@ -163,7 +212,7 @@ file static class SimdCore<T> where T : struct, INumber<T>
 
         return sum + Vector512.Sum(vectorSum512);
     }
-
+#endif
     private static T Sum256(ReadOnlySpan<T> source)
     {
         T sum = T.Zero;
@@ -236,10 +285,12 @@ file static class SimdCore<T> where T : struct, INumber<T>
     {
         if (source.Length > _vectorLength)
         {
+#if NET8_0
             if (_is512)
             {
                 return MinMax512(source);
             }
+#endif
             if (_is256)
             {
                 return MinMax256(source);
@@ -252,6 +303,7 @@ file static class SimdCore<T> where T : struct, INumber<T>
         return MinMaxFallback(source);
     }
 
+#if NET8_0
     private static (T Min, T Max) MinMax512(ReadOnlySpan<T> source)
     {
         ref T current = ref MemoryMarshal.GetReference(source);
@@ -302,7 +354,7 @@ file static class SimdCore<T> where T : struct, INumber<T>
 
         return (min, max);
     }
-
+#endif
     private static (T Min, T Max) MinMax256(ReadOnlySpan<T> source)
     {
         ref T current = ref MemoryMarshal.GetReference(source);
@@ -427,3 +479,4 @@ file static class SimdCore<T> where T : struct, INumber<T>
     }
     #endregion
 }
+#endif
