@@ -11,13 +11,15 @@ Anyway, the performance improvement is mindblowing.
 
 ## Results
 
-BenchmarkDotNet=v0.13.5, OS=Windows 10 (10.0.19044.3086/21H2/November2021Update)
-AMD Ryzen 7 1700, 1 CPU, 16 logical and 8 physical cores
-.NET SDK=8.0.100-rc.1.23455.8
-  [Host]             : .NET 8.0.0 (8.0.23.41904), X64 RyuJIT AVX2
-  .NET 7.0           : .NET 7.0.11 (7.0.1123.42427), X64 RyuJIT AVX2
-  .NET 8.0           : .NET 8.0.0 (8.0.23.41904), X64 RyuJIT AVX2
-  .NET Framework 4.8 : .NET Framework 4.8 (4.8.4644.0), X64 RyuJIT VectorSize=256
+> [!NOTE]
+> BenchmarkDotNet=v0.13.5, OS=Windows 10 (10.0.19044.3086/21H2/November2021Update)
+> AMD Ryzen 7 1700, 1 CPU, 16 logical and 8 physical cores
+> .NET SDK=8.0.100-rc.1.23455.8
+>   [Host]             : .NET 8.0.0 (8.0.23.41904), X64 RyuJIT AVX2
+>   .NET 7.0           : .NET 7.0.11 (7.0.1123.42427), X64 RyuJIT AVX2
+>   .NET 8.0           : .NET 8.0.0 (8.0.23.41904), X64 RyuJIT AVX2
+>   .NET Framework 4.8 : .NET Framework 4.8 (4.8.4644.0), X64 RyuJIT VectorSize=256
+  
 
 
 |        Method |                Job |            Runtime |  Size |           Mean | Allocated |
