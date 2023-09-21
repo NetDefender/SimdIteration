@@ -7,7 +7,7 @@ Unfortunately my hardware doesn't support Vector512.
 Anyway, the performance improvement is mindblowing.
 
 > [!IMPORTANT]
-> net8 is x100 times faster than net48 for calculate the Min and Max at the same time !!
+> net8 is x146 times faster than net48 for calculate the Min and Max at the same time !!
 
 ## Results
 
